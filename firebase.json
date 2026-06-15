@@ -12,7 +12,7 @@
         "run": {
           "serviceId": "nexopos-backend",
           "region": "us-central1",
-          "projectId": "pointofsale-3d0fb"
+          "projectId": "pointofsale-499505"
         }
       }
     ]
