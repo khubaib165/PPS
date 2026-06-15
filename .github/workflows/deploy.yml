@@ -4,9 +4,9 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   SERVICE_NAME: nexopos-backend
   REGION: us-central1
 
@@ -19,7 +19,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Log in to Google Cloud
+      # Log in to Google Cloud using the service account key
       - name: Authenticate to Google Cloud
         id: auth
         uses: google-github-actions/auth@v2
@@ -30,16 +30,30 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # Build and Push container to Artifact Registry / GCR and deploy to Cloud Run
+      # Resolve and explicitly set the project from the authenticated credentials
+      - name: Set GCP Project
+        run: |
+          PROJECT=$(gcloud config get-value project)
+          echo "Resolved GCP Project: $PROJECT"
+          gcloud config set project $PROJECT
+          echo "GCP_PROJECT=$PROJECT" >> $GITHUB_ENV
+
+      # Enable Cloud Run API if needed
+      - name: Enable Cloud Run API
+        run: |
+          gcloud services enable run.googleapis.com --project $GCP_PROJECT
+
+      # Deploy to Cloud Run using the resolved project
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --source . \
-            --project ${{ env.PROJECT_ID }} \
+            --project $GCP_PROJECT \
             --region ${{ env.REGION }} \
             --platform managed \
             --allow-unauthenticated \
-            --set-env-vars="RUN_MIGRATIONS=true"
+            --set-env-vars="RUN_MIGRATIONS=true" \
+            --quiet
 
       # Deploy to Firebase Hosting
       - name: Deploy to Firebase Hosting
@@ -47,5 +61,5 @@ jobs:
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.GCP_SA_KEY }}
-          projectId: ${{ env.PROJECT_ID }}
+          projectId: ${{ env.GCP_PROJECT }}
           channelId: live
