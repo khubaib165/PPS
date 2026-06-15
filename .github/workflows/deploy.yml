@@ -38,10 +38,18 @@ jobs:
           gcloud config set project $PROJECT
           echo "GCP_PROJECT=$PROJECT" >> $GITHUB_ENV
 
-      # Enable Cloud Run API if needed
-      - name: Enable Cloud Run API
+      # Ensure Cloud Run API is enabled
+      - name: Ensure Cloud Run API is enabled
         run: |
-          gcloud services enable run.googleapis.com --project $GCP_PROJECT
+          if gcloud services list --enabled --project "$GCP_PROJECT" --filter="config.name=run.googleapis.com" --format="value(config.name)" | grep -q 'run.googleapis.com'; then
+            echo "Cloud Run API is already enabled."
+          else
+            echo "Cloud Run API is not enabled. Attempting to enable..."
+            gcloud services enable run.googleapis.com --project "$GCP_PROJECT" || {
+              echo "ERROR: Unable to enable Cloud Run API. Ensure the service account has roles/serviceusage.serviceUsageAdmin or enable run.googleapis.com manually in the project." >&2
+              exit 1
+            }
+          fi
 
       # Deploy to Cloud Run using the resolved project
       - name: Deploy to Cloud Run
